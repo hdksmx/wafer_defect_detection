@@ -1,5 +1,3 @@
-
-
 """
 seeds.py
 ========
@@ -34,7 +32,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import atan2, degrees, hypot
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Optional
 
 import numpy as np
 from skimage.transform import probabilistic_hough_line
@@ -73,8 +71,11 @@ class LineSegment:
 # Util
 # ---------------------------------------------------------------------
 def _angle_filter(seg: LineSegment,
-                  angle_range: Tuple[float, float]) -> bool:
-    """Return True if seg.angle_deg ∈ angle_range."""
+                  angle_range: Optional[Tuple[float, float]]) -> bool:
+    """Return True if segment angle is within *angle_range* or
+    if angle_range is None (no filtering)."""
+    if angle_range is None:
+        return True
     lo, hi = angle_range
     if lo <= hi:
         return lo <= seg.angle_deg <= hi
@@ -84,7 +85,7 @@ def _angle_filter(seg: LineSegment,
 
 def _post_filter(segments: Sequence[LineSegment],
                  *,
-                 angle_range: Tuple[float, float],
+                 angle_range: Optional[Tuple[float, float]],
                  min_len_px: int) -> List[LineSegment]:
     """Apply angle & length constraints + deduplication."""
     out = []
@@ -108,7 +109,7 @@ def _post_filter(segments: Sequence[LineSegment],
 # ---------------------------------------------------------------------
 def hough_seeds(mask: np.ndarray,
                 *,
-                angle_range: Tuple[float, float] = (80, 100),
+                angle_range: Optional[Tuple[float, float]] = None,
                 angle_step: float = 0.5,
                 threshold: int = 10,
                 line_gap: int = 5,
@@ -120,8 +121,8 @@ def hough_seeds(mask: np.ndarray,
     ----------
     mask : np.ndarray[bool] or uint8
         Binary mask from `candidates.make_mask`.
-    angle_range : (float, float), default=(80, 100)
-        Allowed segment angle in **degrees**. 90° = vertical.
+    angle_range : (float, float) or None, default=None
+        Allowed segment angle in degrees. None → no restriction (0–180°).
     angle_step : float, default=0.5
         θ discretisation (deg) passed to Hough.
     threshold : int, default=10
@@ -138,9 +139,12 @@ def hough_seeds(mask: np.ndarray,
     if mask.dtype != np.uint8:
         mask = (mask.astype(np.uint8)) * 255
 
-    # Build the θ array limiting to vertical-ish range
-    lo, hi = angle_range
-    thetas = np.deg2rad(np.arange(lo, hi + angle_step, angle_step))
+    # Build θ array
+    if angle_range is None:
+        thetas = None  # skimage will scan full 0–π range
+    else:
+        lo, hi = angle_range
+        thetas = np.deg2rad(np.arange(lo, hi + angle_step, angle_step))
 
     raw = probabilistic_hough_line(mask,
                                    threshold=threshold,
@@ -167,7 +171,7 @@ def _require_lsd():
 
 def lsd_seeds(img: np.ndarray,
               *,
-              angle_range: Tuple[float, float] = (80, 100),
+              angle_range: Optional[Tuple[float, float]] = None,
               min_len_px: int = 20) -> List[LineSegment]:
     """
     Generate seed segments using the LSD detector (`pylsd2`).
@@ -176,8 +180,8 @@ def lsd_seeds(img: np.ndarray,
     ----------
     img : np.ndarray
         Original grayscale image (float32 or uint8).
-    angle_range : (float, float), default=(80, 100)
-        Allowed output angle (deg).
+    angle_range : (float, float) or None, default=None
+        Allowed output angle (deg). None → no restriction.
     min_len_px : int, default=20
         Minimum accepted segment length.
 
