@@ -29,30 +29,37 @@ wafer_defect_detection/
 *Every run builds* `result/20250722_161223/`:
 
 ```
-result/<run>/
-├─ mask.png              # 최종 binary 마스크 (uint8 0/255)
-├─ run.txt               # 파라미터 · 타이밍 로그
-└─ debug_img/            # 중간 단계 확인용
-   ├─ 01_pre_*.png
-   ├─ 02_candidates_*.png
-   └─ 99_overlay_*.png
+result/<timestamp>/
+├─ mask.png                  # 최종 binary 마스크 (uint8 0/255)
+├─ run.txt                   # 파라미터 · 타이밍 로그
+└─ debug_img/                # 단계별 디버깅 이미지
+   ├─ 01_pre_*.png           # 전처리 결과
+   ├─ 02_candidates_*.png    # 후보 픽셀 마스크
+   ├─ 03_theta_*.png         # 그래디언트 방향 시각화
+   ├─ 04_seeds_*.png         # 시드 선분(파란색) 표시
+   ├─ 05_validated_*.png     # 검증 통과 선분(초록색) 표시
+   ├─ 06_mask_*.png          # 최종 마스크
+   └─ 99_overlay_*.png       # 최종 오버레이
 ```
 
 ---
 
 ## 2  Processing Pipeline │ 처리 파이프라인
 
-| Stage | File / Function | 목적 (한글) |
-|-------|-----------------|-------------|
-| 0 | `io_utils.io.load_gray` | 이미지 로딩 및 정규화 |
-| 1 | `preprocess.preprocess` | 가우시안·CLAHE로 대비 향상 |
-| 2 | `candidates.make_mask` | 스크래치 가능 픽셀 마스크 |
-| 3 | `orientation.sobel_orientation` | 그래디언트 방향 계산 |
-| 4 | `seeds.hough_seeds` | 후보 선분 추출 (시드) |
-| 5 | `acontrario.validate_segments` | 통계적 의미성 검증 |
-| 6 | `grouping.select_segments` | 최대 의미 선분 + 중복 제거 |
-| 7 | `grouping.segments_to_mask` | 최종 마스크 raster |
-| 8 | `post.overlay` | 결과 시각화 (오버레이) |
+File            | 설명
+--------------- | --------------------------------------------------------------
+io_utils/io.py  | 이미지 로드·저장 및 uint8/float32 변환
+io_utils/path.py| 실행별 result/<timestamp>/ 경로 생성 유틸
+io_utils/timing.py | Timer, @timeit 데코레이터, 성능 요약
+preprocess.py   | Gaussian / CLAHE 전처리 함수 모음
+candidates.py   | 스크래치 후보 픽셀 마스크 생성 (I_B)
+orientation.py  | Sobel 필터로 그래디언트 방향 계산
+seeds.py        | Probabilistic Hough / LSD로 선분 시드 검출
+acontrario.py   | NFA 계산으로 의미 있는 선분 판정
+grouping.py     | Maximal meaningful 선분 추려서 마스크 생성
+post.py         | skeletonise, dilate, overlay 등 후처리
+pipeline.py     | 전체 파이프라인 조립 및 CLI 진입점
+cli.py          | pipeline.py 를 래핑한 얇은 실행 스크립트 (pipeline으로 실행할거면 필요없음)
 
 ---
 
@@ -78,7 +85,7 @@ python -m wafer_defect_detection.pipeline \
 | `--preprocess` | `gaussian` `clahe` `gauss_clahe` `none` | 전처리 선택 |
 | `--s_med` |  | Gaussian‑median 차 임계값 |
 | `--s_avg` |  | 좌/우 평균 차 임계값 |
-| `--eps` | NFA ≤ ε threshold | 의미성 한계 |
+| `--eps` | NFA ≤ ε threshold | 유의미한 line segment 판단을 위한 임계값 |
 | `--debug` | save step PNGs | 단계별 이미지 저장 |
 
 ---
@@ -93,30 +100,10 @@ python -m wafer_defect_detection.pipeline \
 ---
 
 
-
----
-
-### Folder Structure │ 폴더 구조 (continued)
-
-File            | 설명
---------------- | --------------------------------------------------------------
-io_utils/io.py  | 이미지 로드·저장 및 uint8/float32 변환
-io_utils/path.py| 실행별 result/<timestamp>/ 경로 생성 유틸
-io_utils/timing.py | Timer, @timeit 데코레이터, 성능 요약
-preprocess.py   | Gaussian / CLAHE 전처리 함수 모음
-candidates.py   | 스크래치 후보 픽셀 마스크 생성 (I_B)
-orientation.py  | Sobel 필터로 그래디언트 방향 계산
-seeds.py        | Probabilistic Hough / LSD로 선분 시드 검출
-acontrario.py   | NFA 계산으로 의미 있는 선분 판정
-grouping.py     | Maximal meaningful 선분 추려서 마스크 생성
-post.py         | skeletonise, dilate, overlay 등 후처리
-pipeline.py     | 전체 파이프라인 조립 및 CLI 진입점
-cli.py          | pipeline.py 를 래핑한 얇은 실행 스크립트
-
 # 
 ---
 
-## 5  Output Artefacts │ 실행 결과 파일
+## 5  Output files │ 실행 결과 파일
 
 | 파일/폴더 | 내용 (한글) |
 |---------------|-------------|
@@ -140,7 +127,7 @@ cli.py          | pipeline.py 를 래핑한 얇은 실행 스크립트
 
 ## 6  Dependencies │ 사용 라이브러리 및 버전
 
-| 라이브러리 | 버전 | 사용 이유(한글) |
+| 라이브러리 | 버전 | 사용 이유 |
 |---------|------|------------------|
 | Python | ≥ 3.10 | 프로젝트 실행 환경 |
 | NumPy | 1.26 | 기본 배열/선형대수 연산 |
