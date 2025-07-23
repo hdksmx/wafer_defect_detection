@@ -4,6 +4,8 @@
 
 목표: a‑contrario 통계 기법을 이용해 고해상도 웨이퍼 이미지에서 거의 수직인 미세 스크래치를 False‑Negative 없이 검출하고, False‑Positive는 최소화한다.
 
+Reference : A. Newson, A. Almansa, Y. Gousseau and P. Pérez, "Robust Automatic Line Scratch Detection in Films," in IEEE Transactions on Image Processing, vol. 23, no. 3, pp. 1240-1254, March 2014, doi: 10.1109/TIP.2014.2300824.
+
 ---
 
 ## 1  Folder Structure │ 폴더 구조
@@ -119,7 +121,7 @@ python -m wafer_defect_detection.pipeline \
 | 02 | `02_candidates_<input>.png` | 후보 픽셀(스크래치 가능 영역)을 흰색으로 표시 |
 | 03 | `03_theta_<input>.png` | 그래디언트 방향(0~π)을 0~255 그레이스케일로 시각화 |
 | 04 | `04_seeds_<input>.png` | 원본 이미지 위에 파란색으로 표시된 시드 선분 |
-| 05 | `05_validated_<input>.png` | 통계적 검증을 통과한 선분을 초록색으로 표시 |
+| 05 | `05_validated_<input>.png` | 통계적 검증(A contrario)을 통과한 선분을 초록색으로 표시 |
 | 06 | `06_mask_<input>.png` | 최종 마스크(흰색=스크래치) |
 | 99 | `99_overlay_<input>.png` | 최종 마스크를 빨간색 반투명으로 원본 위에 오버레이 |
 
